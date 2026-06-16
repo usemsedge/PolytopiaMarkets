@@ -71,3 +71,33 @@ TEST(full, Scenario1_BeatsHuman) {
   std::cout << "Time taken (4 cities): " << duration.count() << " ms" << std::endl;
   prettyPrint(best.layout);
 }
+
+// Regression: city 2 is a big city border-grown against the bottom edge of the
+// grid, so the optimizer places buildings on edge-owned tiles whose 8-tile
+// neighbourhood extends past the grid. calculateMarketTotal used to read the
+// neighbour tile BEFORE its bounds check, an out-of-bounds access that traps
+// with "memory access out of bounds" under WASM. This is the reported map.
+TEST(full, EdgeOwnedTilesDoNotReadOutOfBounds) {
+  vector<vector<int>> map = {
+    {RESOURCE, EMPTY,    EMPTY,    EMPTY,    RESOURCE, EMPTY, RESOURCE},
+    {RESOURCE, CITY,     RESOURCE, EMPTY,    RESOURCE, CITY,  RESOURCE},
+    {RESOURCE, EMPTY,    RESOURCE, EMPTY,    EMPTY,    EMPTY, EMPTY},
+    {EMPTY,    EMPTY,    EMPTY,    EMPTY,    RESOURCE, EMPTY, EMPTY},
+    {EMPTY,    RESOURCE, CITY,     RESOURCE, EMPTY,    EMPTY, EMPTY},
+    {EMPTY,    RESOURCE, EMPTY,    EMPTY,    EMPTY,    RESOURCE, EMPTY},
+  };
+  vector<Coord> cityCenters = {Coord{1, 1}, Coord{1, 5}, Coord{4, 2}};
+  vector<int> actionOrder = {0, 1, 2, 2};  // city 2 captured, then border-grown
+
+  ParetoResult result = findParetoFrontier(map, cityCenters, actionOrder);
+
+  // Must complete without an out-of-bounds access and yield a valid frontier.
+  ASSERT_FALSE(result.configs.empty());
+  EXPECT_LE(result.configs.size(), 3u);
+  for (size_t k = 0; k < result.configs.size(); k++) {
+    EXPECT_GE(result.configs[k].marketTotal, 0);
+    EXPECT_GE(result.configs[k].buildingTotal, 0);
+    // configs are sorted by market total, descending
+    if (k > 0) EXPECT_LE(result.configs[k].marketTotal, result.configs[k - 1].marketTotal);
+  }
+}

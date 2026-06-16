@@ -334,8 +334,8 @@ int calculateMarketTotal(const BacktrackState& state) {
       int ny = buildingCoord.row + dy[j];
       int nx = buildingCoord.col + dx[j];
       Coord adjacentCoord = {ny, nx};
-      int owner = state.map[ny][nx].owner;
       if (inBounds(state.map, adjacentCoord)) {
+        int owner = state.map[ny][nx].owner;
         int type = state.map[ny][nx].type;
         if ((type == RESOURCE || type == USED_RESOURCE) &&
           owner != -1 &&
