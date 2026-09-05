@@ -70,6 +70,10 @@ body{background:#f0f0f0;display:flex;align-items:flex-start;justify-content:cent
 #calc-btn{padding:0 32px;height:44px;background:#4285f4;color:#fff;border:none;border-radius:6px;font-size:15px;font-weight:500;cursor:pointer;letter-spacing:.02em}
 #calc-btn:hover{background:#3071e8}
 #calc-btn:active{transform:scale(.98)}
+#clear-calc-btn{padding:0 20px;height:44px;background:#fff;color:#4285f4;border:2px solid #4285f4;border-radius:6px;font-size:15px;font-weight:500;cursor:pointer;letter-spacing:.02em}
+#clear-calc-btn:hover:not(:disabled){background:#eef4ff}
+#clear-calc-btn:active:not(:disabled){transform:scale(.98)}
+#clear-calc-btn:disabled{opacity:.45;cursor:not-allowed}
 #undo-clear-section{padding-top:6px;border-top:1px solid #ddd;margin-top:2px;display:flex;flex-direction:column;align-items:center;gap:6px;width:100%}
 .undo-clear-row{display:flex;flex-direction:row;align-items:flex-end;justify-content:center;gap:12px}
 .undo-clear-col{display:flex;flex-direction:column;align-items:center;gap:6px}
@@ -199,7 +203,7 @@ Optimize for anything else (like hanging population)
 <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="24" cy="24" r="20" stroke="#e53935" stroke-width="4"/><line x1="10" y1="38" x2="38" y2="10" stroke="#e53935" stroke-width="4" stroke-linecap="round"/></svg>
 </button></div></div></div>
 </div></div>
-<div id="bottom-bar"><div><h2>Polytopia Market Calculator</h2><br><h4>Made by cityblock</h4></div><div id="calc-bar-group"><button type="button" id="usage-btn" title="How to use" aria-haspopup="dialog" aria-controls="usage-modal">?</button><div id="calc-results" aria-live="polite"><div id="config-selector" role="group" aria-label="Optimal configurations"></div><div class="calc-totals-row"><div class="calc-total"><span class="calc-total-label">Market total</span><strong id="market-total-value">—</strong></div><div class="calc-total building"><span class="calc-total-label">Building total</span><strong id="building-total-value">—</strong></div></div></div><button type="button" id="calc-btn" disabled title="Loading solver…">Calculate</button></div></div>
+<div id="bottom-bar"><div><h2>Polytopia Market Calculator</h2><br><h4>Made by cityblock</h4></div><div id="calc-bar-group"><button type="button" id="usage-btn" title="How to use" aria-haspopup="dialog" aria-controls="usage-modal">?</button><div id="calc-results" aria-live="polite"><div id="config-selector" role="group" aria-label="Optimal configurations"></div><div class="calc-totals-row"><div class="calc-total"><span class="calc-total-label">Market total</span><strong id="market-total-value">—</strong></div><div class="calc-total building"><span class="calc-total-label">Building total</span><strong id="building-total-value">—</strong></div></div></div><button type="button" id="calc-btn" disabled title="Loading solver…">Calculate</button><button type="button" id="clear-calc-btn" disabled title="Remove the calculation preview">Reset</button></div></div>
 <div id="debug-panel">
 <div class="debug-title">Debug</div>
 <div class="debug-block"><div class="debug-label">cityCenters</div><div id="dbg-city-centers"></div></div>
@@ -507,7 +511,13 @@ function setConfigs(configs) {
   if (previewConfigs.length === 0) alert('No valid market layout was found for this map.');
   renderConfigSelector();
   updateTotalsDisplay();
+  updateClearCalcButton();
   render();
+}
+// Enable the "Clear Calculation" button only when there is a preview to clear.
+function updateClearCalcButton() {
+  const b = $('clear-calc-btn');
+  if (b) b.disabled = previewConfigs.length === 0;
 }
 // Clears the previewed configs without re-rendering (callers render afterwards).
 function resetPreviewState() {
@@ -515,6 +525,7 @@ function resetPreviewState() {
   selectedConfigIdx = -1;
   renderConfigSelector();
   updateTotalsDisplay();
+  updateClearCalcButton();
 }
 
 function render() {
@@ -642,6 +653,8 @@ $('calc-btn').onclick = () => {
     numActions,
   });
 };
+
+$('clear-calc-btn').onclick = () => { resetPreviewState(); render(); };
 
 $('undo-btn').onclick = () => undoOnce();
 $('clear-btn').onclick = () => {
