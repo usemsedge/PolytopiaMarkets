@@ -14,9 +14,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Polytopia Market Optimizer</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
+*{box-sizing:border-box;margin:0;padding:0;touch-action:manipulation}
 body{background:#f0f0f0;display:flex;align-items:flex-start;justify-content:center;min-height:100vh;padding:16px}
 #outer{display:flex;flex-direction:column;gap:12px;width:100%}
+#session-bar{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #ccc;padding:6px 8px;flex-shrink:0;min-width:0}
+#session-tabstrip{display:flex;align-items:center;gap:4px;flex:1;min-width:0}
+#session-tabs{display:flex;align-items:center;gap:4px;flex:0 1 auto;min-width:0;max-width:calc(100% - 36px);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
+#session-tabs::-webkit-scrollbar{height:6px}
+#session-tabs::-webkit-scrollbar-thumb{background:#c5cae9;border-radius:3px}
+.session-tab{display:flex;align-items:center;gap:6px;height:32px;padding:0 8px 0 12px;border:2px solid #c5cae9;border-radius:6px;background:#fff;color:#3949ab;cursor:pointer;font:500 13px system-ui,-apple-system,sans-serif;white-space:nowrap;flex-shrink:0}
+.session-tab:hover{background:#eef0ff;border-color:#9fa8da}
+.session-tab.active{background:#5c6bc0;border-color:#3949ab;color:#fff}
+.session-tab-name{max-width:10em;overflow:hidden;text-overflow:ellipsis}
+.session-tab-name-input{width:8em;height:22px;border:1px solid #9fa8da;border-radius:4px;padding:0 6px;font:500 13px system-ui,-apple-system,sans-serif}
+.session-tab-close{width:20px;height:20px;border:none;border-radius:4px;background:transparent;color:inherit;font:700 14px/1 system-ui,sans-serif;cursor:pointer;padding:0;opacity:.7}
+.session-tab-close:hover{opacity:1;background:rgba(0,0,0,.08)}
+.session-tab.active .session-tab-close:hover{background:rgba(255,255,255,.2)}
+#session-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.session-action-btn{height:32px;padding:0 10px;border:2px solid #4285f4;border-radius:6px;background:#fff;color:#1a237e;font:600 12px system-ui,-apple-system,sans-serif;cursor:pointer;letter-spacing:.02em}
+.session-action-btn:hover{background:#e8f4fd}
+.session-action-btn.primary{background:#4285f4;color:#fff}
+.session-action-btn.primary:hover{background:#3071e8}
+#session-new-btn{width:32px;height:32px;padding:0;flex-shrink:0}
 #top-row{display:flex;flex-direction:row;align-items:stretch;gap:12px;width:100%}
 #root{flex:1;min-width:0;background:#fff;border:1px solid #ccc;display:grid;grid-template-rows:auto 1fr auto;grid-template-columns:auto 1fr auto}
 /* On screens wide enough for the sidebar, fill the viewport: the grid takes all
@@ -45,13 +64,17 @@ body{background:#f0f0f0;display:flex;align-items:flex-start;justify-content:cent
 .btn:active{transform:scale(.95)}
 .cell{position:relative;border:.5px solid #bbb;overflow:hidden;cursor:pointer;flex-shrink:0;background:transparent}
 .cell::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:10;opacity:0;transition:opacity .12s ease,background .12s ease;background:rgba(66,133,244,.32)}
-.cell:hover::after{opacity:1}
-.cell:hover .cell-bg,.cell:hover .cell-overlay{opacity:.35}
+@media (hover:hover) and (pointer:fine){
+  .cell:hover::after{opacity:1}
+  .cell:hover .cell-bg,.cell:hover .cell-overlay{opacity:.35}
+  .cell.no-upgrade:hover::after{background:rgba(229,57,53,.38)}
+}
 .cell.no-upgrade{cursor:not-allowed}
-.cell.no-upgrade:hover::after{background:rgba(229,57,53,.38)}
 .cell.flashing{background-color:transparent}
 .cell.flashing::after{background:rgba(229,57,53,.45);opacity:1;z-index:20}
 .cell.flashing .cell-bg,.cell.flashing .cell-overlay{opacity:.35}
+@keyframes placeFlash{0%,35%{opacity:1}100%{opacity:0}}
+.cell.placed::after{background:rgba(66,133,244,.4);opacity:1;z-index:20;animation:placeFlash .35s ease forwards}
 .cell .cell-bg,.cell .cell-overlay{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;display:block}
 .cell .cell-bg{z-index:1}
 .cell .cell-overlay{z-index:2}
@@ -62,6 +85,11 @@ body{background:#f0f0f0;display:flex;align-items:flex-start;justify-content:cent
 .sidebar-item.sidebar-city-tile{overflow:visible}
 .sidebar-item .si-overlay.si-overlay--city{width:116%;height:116%;left:50%;top:auto;bottom:0;transform:translateX(-50%);object-fit:contain;object-position:center bottom}
 #sidebar{flex-shrink:0;background:#fff;border:1px solid #ccc;display:flex;flex-direction:column;align-items:stretch;padding:8px;gap:6px;overflow-y:auto}
+#palette-actions{display:contents}
+#selected-section{order:1}
+#tiles-label{order:2}
+#tile-cols{order:3}
+#undo-clear-section{order:4}
 .sidebar-label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.05em}
 #selected-row{display:flex;justify-content:center;padding-bottom:6px;border-bottom:1px solid #ddd;margin-bottom:2px}
 #selected-box{width:72px;height:72px;border:3px solid #4285f4;border-radius:6px;overflow:hidden;flex-shrink:0;position:relative;background:#eee}
@@ -115,6 +143,16 @@ body{background:#f0f0f0;display:flex;align-items:flex-start;justify-content:cent
 #usage-modal .usage-modal__body strong{color:#3949ab}
 #usage-modal .usage-modal__close{position:absolute;top:12px;right:12px;width:36px;height:36px;border:none;border-radius:6px;background:#f0f0f0;color:#444;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 #usage-modal .usage-modal__close:hover{background:#e0e0e0}
+#io-modal{position:fixed;inset:0;z-index:10002;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}
+#io-modal.hidden{display:none!important}
+#io-modal .io-modal__scrim{position:absolute;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(2px)}
+#io-modal .io-modal__panel{position:relative;z-index:1;max-width:32rem;width:100%;background:#fff;border:1px solid #ccc;border-radius:10px;padding:20px 22px 22px;box-shadow:0 12px 40px rgba(0,0,0,.18);color:#333;font:15px/1.55 system-ui,-apple-system,sans-serif}
+#io-modal .io-modal__title{margin:0 0 8px;font-size:1.15rem;font-weight:600;color:#1a237e;padding-right:36px}
+#io-modal .io-modal__hint{margin:0 0 10px;color:#555;font-size:13px}
+#io-modal textarea{width:100%;min-height:180px;resize:vertical;border:1px solid #ccc;border-radius:6px;padding:8px 10px;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;box-sizing:border-box}
+#io-modal .io-modal__row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;justify-content:flex-end}
+#io-modal .io-modal__close{position:absolute;top:12px;right:12px;width:36px;height:36px;border:none;border-radius:6px;background:#f0f0f0;color:#444;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+#io-modal .io-modal__close:hover{background:#e0e0e0}
 #calc-results{display:flex;flex-direction:column;align-items:stretch;gap:8px;min-width:17em;padding:10px 16px;border:2px solid #c5cae9;border-radius:8px;background:#f8f9ff}
 #config-selector{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
 #config-selector:empty{display:none}
@@ -135,6 +173,30 @@ body{background:#f0f0f0;display:flex;align-items:flex-start;justify-content:cent
 .cell--has-preview::before{content:'';position:absolute;inset:0;z-index:29;pointer-events:none;background:rgba(106,27,154,.20);box-shadow:inset 0 0 0 3px rgba(106,27,154,.7)}
 .cell-preview--growth{inset:0;width:100%;height:100%;filter:drop-shadow(0 0 3px rgba(0,137,123,.95))}
 .cell--has-growth-preview::before{content:'';position:absolute;inset:0;z-index:29;pointer-events:none;background:rgba(0,137,123,.20);box-shadow:inset 0 0 0 3px rgba(0,137,123,.75)}
+@media (max-width:699px){
+  body{padding:8px}
+  #top-row{flex-direction:column;align-items:stretch}
+  #root{width:100%;flex:0 0 auto;height:min(46.4vh,80vw);min-height:min(46.4vh,80vw);max-height:min(46.4vh,80vw)}
+  #sidebar{flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:flex-end;gap:6px 12px;overflow:visible;width:100%}
+  #tiles-label{order:1;flex:1 0 100%;text-align:center;margin:0}
+  #tile-cols{order:2;flex:0 0 auto;display:flex;flex-wrap:wrap;justify-content:center;gap:4px;width:calc(5 * 48px + 4 * 4px);max-width:100%;margin:0 auto}
+  .tile-col{display:contents}
+  .sidebar-item{width:48px;height:48px}
+  #palette-actions{order:3;display:flex;flex-direction:row;flex-wrap:nowrap;justify-content:center;align-items:flex-end;gap:12px;flex:1 0 100%;width:100%}
+  #selected-section,#undo-clear-section{flex:0 0 auto;width:auto;max-width:none}
+  #selected-section{display:flex;flex-direction:column;align-items:center;gap:6px}
+  #selected-label{text-align:center}
+  #selected-row{padding:0;border:none;margin:0}
+  #selected-box{width:52px;height:52px}
+  #undo-clear-section{padding:0;border:none;margin:0}
+  .undo-clear-row{gap:8px}
+  .sidebar-square-btn{width:52px;height:52px}
+  #clear-btn svg{width:32px;height:32px}
+  .corner{width:36px;height:36px}
+  .h-bar{padding:4px 0}
+  .v-bar{padding:0 4px}
+  .btn{width:28px;height:28px;font-size:16px}
+}
 </style>
 </head>
 <body>
@@ -152,6 +214,7 @@ body{background:#f0f0f0;display:flex;align-items:flex-start;justify-content:cent
 <p>Click the map’s tiles to change them.</p>
 <p>Click the <strong>+</strong> on each side to expand the map.</p>
 <p>Use <strong>UNDO</strong> and <strong>CLEAR</strong> buttons when needed.</p>
+<p>Use the tabs at the top for independent maps. <strong>Import</strong> opens the map in a new tab with no undo history and no calculation preview. <strong>Export</strong> writes this tab as Polytopia Board Notation. Sessions are saved in this browser.</p>
 <p>Click <strong>Calculate</strong> to find the best possible market layouts.</p>
 <p>Each result is a trade-off between <strong>market stars</strong>, <strong>building population</strong> and
   <strong>border growths</strong> used; pick one to preview it. A result may ask for border growths the map
@@ -185,7 +248,32 @@ Optimize for anything else (like hanging population)
 </div>
 </div>
 </div>
+<div id="io-modal" class="hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="io-dialog-title">
+<div class="io-modal__scrim" id="io-modal-scrim"></div>
+<div class="io-modal__panel">
+<button type="button" class="io-modal__close" id="io-modal-close" aria-label="Close">×</button>
+<h2 id="io-dialog-title" class="io-modal__title">Export map</h2>
+<p class="io-modal__hint" id="io-modal-hint"></p>
+<textarea id="io-modal-text" spellcheck="false"></textarea>
+<div class="io-modal__row">
+<button type="button" class="session-action-btn" id="io-file-btn">Choose file</button>
+<button type="button" class="session-action-btn" id="io-copy-btn">Copy</button>
+<button type="button" class="session-action-btn primary" id="io-confirm-btn">Import</button>
+</div>
+</div>
+</div>
+<input type="file" id="io-file-input" accept=".pbn,.txt,text/plain" hidden>
 <div id="outer">
+<div id="session-bar">
+<div id="session-tabstrip">
+<div id="session-tabs" role="tablist" aria-label="Map sessions"></div>
+<button type="button" class="session-action-btn primary" id="session-new-btn" title="New empty map tab">+</button>
+</div>
+<div id="session-actions">
+<button type="button" class="session-action-btn" id="session-import-btn" title="Open a PBN map in a new tab">Import</button>
+<button type="button" class="session-action-btn" id="session-export-btn" title="Export this tab as PBN">Export</button>
+</div>
+</div>
 <div id="top-row">
 <div id="root">
 <div class="corner" style="grid-row:1;grid-column:1"></div>
@@ -199,10 +287,11 @@ Optimize for anything else (like hanging population)
 <div class="corner" style="grid-row:3;grid-column:3"></div>
 </div>
 <div id="sidebar">
-<div class="sidebar-label" style="text-align:center">Selected</div>
+<div id="palette-actions">
+<div id="selected-section">
+<div class="sidebar-label" id="selected-label">Selected</div>
 <div id="selected-row"><div id="selected-box"></div></div>
-<div class="sidebar-label">Tiles</div>
-<div id="tile-cols"></div>
+</div>
 <div id="undo-clear-section">
 <div class="undo-clear-row">
 <div class="undo-clear-col"><div class="sidebar-label">History</div>
@@ -211,12 +300,16 @@ Optimize for anything else (like hanging population)
 <button type="button" id="clear-btn" class="sidebar-square-btn" title="Clear all tiles">
 <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="24" cy="24" r="20" stroke="#e53935" stroke-width="4"/><line x1="10" y1="38" x2="38" y2="10" stroke="#e53935" stroke-width="4" stroke-linecap="round"/></svg>
 </button></div></div></div>
+</div>
+<div class="sidebar-label" id="tiles-label">Tiles</div>
+<div id="tile-cols"></div>
 </div></div>
 <div id="bottom-bar"><div><h2>Polytopia Market Calculator</h2><br><h4>Made by cityblock and JAQK</h4></div><div id="calc-bar-group"><button type="button" id="usage-btn" title="How to use" aria-haspopup="dialog" aria-controls="usage-modal">?</button><div id="calc-results" aria-live="polite"><div id="config-selector" role="group" aria-label="Optimal configurations"></div><div class="calc-totals-row"><div class="calc-total"><span class="calc-total-label">Market stars</span><strong id="market-stars-value">—</strong></div><div class="calc-total building"><span class="calc-total-label">Building pop</span><strong id="building-pop-value">—</strong></div><div class="calc-total growth"><span class="calc-total-label">Border growths</span><strong id="border-growth-value">—</strong></div></div></div><button type="button" id="calc-btn" disabled title="Loading solver…">Calculate</button><button type="button" id="clear-calc-btn" disabled title="Remove the calculation preview">Reset</button></div></div>
 </div>
 <script type="module">
 const $ = id => document.getElementById(id);
 import { createMarketCalculator } from './market-calculation.mjs';
+import { encodePbn, decodePbn } from './pbn.mjs';
 
 let marketCalculator = null;
 let isMarketCalculatorReady = false;
@@ -310,8 +403,12 @@ const cityTiles = new Set([8, 9]);
 const cityShapeOverlay = new Set([8, 9]);
 
 let cityCenters = [], actionOrder = [], tilesOwnedByCity = {}, selectedVal = 1, cellSize = 100;
+const DEFAULT_GRID_SIZE = 5;
 function newRow(len) { return Array.from({ length: len }, () => 0); }
-let grid = [newRow(3), newRow(3), newRow(3)];
+function emptyGrid(size = DEFAULT_GRID_SIZE) {
+  return Array.from({ length: size }, () => newRow(size));
+}
+let grid = emptyGrid();
 let undoStack = [];
 
 function cloneTilesOwnedByCity(src) {
@@ -343,6 +440,403 @@ function undoOnce() {
   cancelCalculation();
   resetPreviewState();
   render();
+  persistSessions();
+}
+function rebuildOwnership() {
+  tilesOwnedByCity = {};
+  const seen = new Map();
+  for (const idx of actionOrder) {
+    const center = cityCenters[idx];
+    if (!center) continue;
+    const seenCount = seen.get(idx) ?? 0;
+    claimTiles(idx, center.r, center.c, seenCount === 0 ? 1 : 2);
+    seen.set(idx, seenCount + 1);
+  }
+}
+
+const SESSION_STORAGE_KEY = 'polyMarketCalc.sessions.v1';
+const MAX_SESSIONS = 20;
+const MAX_UNDO = 80;
+let sessions = [];
+let activeSessionId = null;
+
+function newSessionId() {
+  return (crypto.randomUUID && crypto.randomUUID()) || `map-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+function nextSessionName() {
+  const used = new Set(sessions.map(s => s.name));
+  let n = sessions.length + 1;
+  while (used.has(`Map ${n}`)) n += 1;
+  return `Map ${n}`;
+}
+function emptySession(name) {
+  return {
+    id: newSessionId(),
+    name: name || nextSessionName(),
+    grid: emptyGrid(),
+    cityCenters: [],
+    actionOrder: [],
+    tilesOwnedByCity: {},
+    undoStack: [],
+    previewConfigs: [],
+    selectedConfigIdx: -1,
+    hasUserPickedConfig: false,
+  };
+}
+function cloneSessionState(s) {
+  return {
+    id: s.id,
+    name: s.name,
+    grid: s.grid.map(row => row.slice()),
+    cityCenters: s.cityCenters.map(cc => ({ r: cc.r, c: cc.c })),
+    actionOrder: s.actionOrder.slice(),
+    tilesOwnedByCity: cloneTilesOwnedByCity(s.tilesOwnedByCity || {}),
+    undoStack: (s.undoStack || []).map(snapshot => ({
+      grid: snapshot.grid.map(row => row.slice()),
+      cityCenters: snapshot.cityCenters.map(cc => ({ r: cc.r, c: cc.c })),
+      actionOrder: snapshot.actionOrder.slice(),
+      tilesOwnedByCity: cloneTilesOwnedByCity(snapshot.tilesOwnedByCity || {})
+    })),
+    previewConfigs: s.previewConfigs || [],
+    selectedConfigIdx: s.selectedConfigIdx ?? -1,
+    hasUserPickedConfig: !!s.hasUserPickedConfig,
+  };
+}
+function captureCurrentIntoSession() {
+  const s = sessions.find(sess => sess.id === activeSessionId);
+  if (!s) return;
+  s.grid = grid.map(row => row.slice());
+  s.cityCenters = cityCenters.map(cc => ({ r: cc.r, c: cc.c }));
+  s.actionOrder = actionOrder.slice();
+  s.tilesOwnedByCity = cloneTilesOwnedByCity(tilesOwnedByCity);
+  s.undoStack = undoStack.slice(-MAX_UNDO).map(snapshot => ({
+    grid: snapshot.grid.map(row => row.slice()),
+    cityCenters: snapshot.cityCenters.map(cc => ({ r: cc.r, c: cc.c })),
+    actionOrder: snapshot.actionOrder.slice(),
+    tilesOwnedByCity: cloneTilesOwnedByCity(snapshot.tilesOwnedByCity || {})
+  }));
+  s.previewConfigs = previewConfigs;
+  s.selectedConfigIdx = selectedConfigIdx;
+  s.hasUserPickedConfig = hasUserPickedConfig;
+}
+function applySessionToGlobals(s) {
+  grid = s.grid.map(row => row.slice());
+  cityCenters = s.cityCenters.map(cc => ({ r: cc.r, c: cc.c }));
+  actionOrder = s.actionOrder.slice();
+  tilesOwnedByCity = cloneTilesOwnedByCity(s.tilesOwnedByCity || {});
+  undoStack = (s.undoStack || []).map(snapshot => ({
+    grid: snapshot.grid.map(row => row.slice()),
+    cityCenters: snapshot.cityCenters.map(cc => ({ r: cc.r, c: cc.c })),
+    actionOrder: snapshot.actionOrder.slice(),
+    tilesOwnedByCity: cloneTilesOwnedByCity(snapshot.tilesOwnedByCity || {})
+  }));
+  previewConfigs = s.previewConfigs || [];
+  selectedConfigIdx = s.selectedConfigIdx ?? -1;
+  hasUserPickedConfig = !!s.hasUserPickedConfig;
+  if (Object.keys(tilesOwnedByCity).length === 0 && actionOrder.length > 0) rebuildOwnership();
+  updateUndoButton();
+  renderConfigSelector();
+  updateTotalsDisplay();
+  updateClearCalcButton();
+}
+function persistSessions() {
+  captureCurrentIntoSession();
+  try {
+    const payload = {
+      version: 1,
+      activeId: activeSessionId,
+      sessions: sessions.map(s => ({
+        id: s.id,
+        name: s.name,
+        grid: s.grid,
+        cityCenters: s.cityCenters,
+        actionOrder: s.actionOrder,
+        tilesOwnedByCity: s.tilesOwnedByCity,
+        undoStack: (s.undoStack || []).slice(-MAX_UNDO),
+      })),
+    };
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
+  } catch (e) {
+    console.warn('Could not save sessions in this browser:', e);
+  }
+}
+function loadPersistedSessions() {
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data || !Array.isArray(data.sessions) || data.sessions.length === 0) return false;
+    sessions = data.sessions.slice(0, MAX_SESSIONS).map((s, i) => cloneSessionState({
+      id: s.id || newSessionId(),
+      name: s.name || `Map ${i + 1}`,
+      grid: s.grid,
+      cityCenters: s.cityCenters || [],
+      actionOrder: s.actionOrder || [],
+      tilesOwnedByCity: s.tilesOwnedByCity || {},
+      undoStack: s.undoStack || [],
+      previewConfigs: [],
+      selectedConfigIdx: -1,
+      hasUserPickedConfig: false,
+    })).filter(s => s.grid?.length && s.grid[0]?.length);
+    if (sessions.length === 0) return false;
+    activeSessionId = sessions.some(s => s.id === data.activeId) ? data.activeId : sessions[0].id;
+    applySessionToGlobals(sessions.find(s => s.id === activeSessionId));
+    return true;
+  } catch (e) {
+    console.warn('Could not restore saved sessions:', e);
+    return false;
+  }
+}
+function renderSessionTabs() {
+  const host = $('session-tabs');
+  if (!host) return;
+  host.innerHTML = '';
+  sessions.forEach(s => {
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'session-tab' + (s.id === activeSessionId ? ' active' : '');
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('aria-selected', s.id === activeSessionId ? 'true' : 'false');
+    tab.title = 'Double-click to rename';
+    const name = document.createElement('span');
+    name.className = 'session-tab-name';
+    name.textContent = s.name;
+    tab.appendChild(name);
+    if (sessions.length > 1) {
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'session-tab-close';
+      close.title = 'Close tab';
+      close.setAttribute('aria-label', `Close ${s.name}`);
+      close.textContent = '×';
+      close.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeSession(s.id);
+      });
+      tab.appendChild(close);
+    }
+    tab.addEventListener('click', () => switchSession(s.id));
+    tab.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      beginRenameSession(s, tab, name);
+    });
+    host.appendChild(tab);
+  });
+  const active = host.querySelector('.session-tab.active');
+  if (active) active.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+}
+function beginRenameSession(session, tab, nameEl) {
+  const input = document.createElement('input');
+  input.className = 'session-tab-name-input';
+  input.value = session.name;
+  input.setAttribute('aria-label', 'Session name');
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+  let finished = false;
+  const finish = (commit) => {
+    if (finished) return;
+    finished = true;
+    const next = input.value.trim();
+    if (commit && next) session.name = next.slice(0, 40);
+    renderSessionTabs();
+    persistSessions();
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') finish(true);
+    if (e.key === 'Escape') finish(false);
+    e.stopPropagation();
+  });
+  input.addEventListener('click', (e) => e.stopPropagation());
+  input.addEventListener('blur', () => finish(true));
+}
+function switchSession(id) {
+  if (id === activeSessionId) return;
+  captureCurrentIntoSession();
+  cancelCalculation();
+  activeSessionId = id;
+  applySessionToGlobals(sessions.find(s => s.id === id));
+  persistSessions();
+  renderSessionTabs();
+  render();
+}
+function addSession() {
+  if (sessions.length >= MAX_SESSIONS) {
+    alert(`You can keep up to ${MAX_SESSIONS} tabs.`);
+    return;
+  }
+  captureCurrentIntoSession();
+  cancelCalculation();
+  const s = emptySession();
+  sessions.push(s);
+  activeSessionId = s.id;
+  applySessionToGlobals(s);
+  persistSessions();
+  renderSessionTabs();
+  render();
+}
+function sessionHasContent(s) {
+  if (s.cityCenters.length > 0 || s.undoStack.length > 0) return true;
+  return s.grid.some(row => row.some(v => v !== 0));
+}
+function closeSession(id) {
+  if (sessions.length <= 1) return;
+  const target = sessions.find(s => s.id === id);
+  if (target && sessionHasContent(target) && !confirm(`Close "${target.name}"? This cannot be undone.`)) return;
+  const idx = sessions.findIndex(s => s.id === id);
+  if (idx < 0) return;
+  if (id === activeSessionId) cancelCalculation();
+  sessions.splice(idx, 1);
+  if (id === activeSessionId) {
+    activeSessionId = sessions[Math.max(0, idx - 1)].id;
+    applySessionToGlobals(sessions.find(s => s.id === activeSessionId));
+  }
+  persistSessions();
+  renderSessionTabs();
+  render();
+}
+function applyImportedState(decoded) {
+  if (sessions.length >= MAX_SESSIONS) {
+    alert(`You can keep up to ${MAX_SESSIONS} tabs.`);
+    return false;
+  }
+  captureCurrentIntoSession();
+  cancelCalculation();
+  const s = emptySession();
+  sessions.push(s);
+  activeSessionId = s.id;
+  applySessionToGlobals(s);
+  resetPreviewState();
+  resetUndoHistory();
+  grid = decoded.grid.map(row => row.slice());
+  cityCenters = decoded.cityCenters.map(cc => ({ r: cc.r, c: cc.c }));
+  actionOrder = decoded.actionOrder.slice();
+  rebuildOwnership();
+  persistSessions();
+  renderSessionTabs();
+  render();
+  return true;
+}
+
+let ioMode = 'export';
+function setIoMode(mode) {
+  ioMode = mode;
+  const title = $('io-dialog-title');
+  const hint = $('io-modal-hint');
+  const confirm = $('io-confirm-btn');
+  const copy = $('io-copy-btn');
+  const fileBtn = $('io-file-btn');
+  const text = $('io-modal-text');
+  if (mode === 'export') {
+    if (title) title.textContent = 'Export map';
+    if (hint) hint.textContent = 'Polytopia Board Notation for this tab. Calculation previews are not included.';
+    if (confirm) confirm.hidden = true;
+    if (copy) copy.hidden = false;
+    if (fileBtn) { fileBtn.hidden = false; fileBtn.textContent = 'Download'; }
+    if (text) text.readOnly = true;
+  } else {
+    if (title) title.textContent = 'Import map';
+    if (hint) hint.textContent = 'Paste PBN or choose a file. Opens a new tab with no undo history and no calculation preview.';
+    if (confirm) { confirm.hidden = false; confirm.textContent = 'Import'; }
+    if (copy) copy.hidden = true;
+    if (fileBtn) { fileBtn.hidden = false; fileBtn.textContent = 'Choose file'; }
+    if (text) { text.readOnly = false; text.value = ''; }
+  }
+}
+function openIoModal(mode) {
+  setIoMode(mode);
+  const modal = $('io-modal');
+  const text = $('io-modal-text');
+  if (mode === 'export') {
+    try {
+      text.value = encodePbn(grid, cityCenters, actionOrder);
+    } catch (e) {
+      alert('Could not export this map: ' + (e && e.message ? e.message : e));
+      return;
+    }
+  }
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+  text.focus();
+  if (mode === 'export') text.select();
+}
+function closeIoModal() {
+  const modal = $('io-modal');
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+}
+function confirmImport() {
+  const text = $('io-modal-text').value;
+  try {
+    const decoded = decodePbn(text);
+    if (applyImportedState(decoded)) closeIoModal();
+  } catch (e) {
+    alert('Could not import: ' + (e && e.message ? e.message : e));
+  }
+}
+function downloadExport() {
+  const text = $('io-modal-text').value;
+  const session = sessions.find(s => s.id === activeSessionId);
+  const name = (session?.name || 'map').replace(/[^\w\-]+/g, '_');
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${name}.pbn`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+function initIoModal() {
+  $('io-modal-scrim').addEventListener('click', closeIoModal);
+  $('io-modal-close').addEventListener('click', closeIoModal);
+  $('io-confirm-btn').addEventListener('click', confirmImport);
+  $('io-copy-btn').addEventListener('click', async () => {
+    const text = $('io-modal-text').value;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      $('io-modal-text').select();
+      document.execCommand('copy');
+    }
+  });
+  $('io-file-btn').addEventListener('click', () => {
+    if (ioMode === 'export') downloadExport();
+    else $('io-file-input').click();
+  });
+  $('io-file-input').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      $('io-modal-text').value = await file.text();
+    } catch (err) {
+      alert('Could not read that file: ' + (err && err.message ? err.message : err));
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('io-modal').classList.contains('hidden')) closeIoModal();
+  });
+  $('session-import-btn').addEventListener('click', () => openIoModal('import'));
+  $('session-export-btn').addEventListener('click', () => openIoModal('export'));
+  $('session-new-btn').addEventListener('click', addSession);
+}
+function initSessions() {
+  if (!loadPersistedSessions()) {
+    const s = emptySession('Map 1');
+    sessions = [s];
+    activeSessionId = s.id;
+    applySessionToGlobals(s);
+  }
+  renderSessionTabs();
+  initIoModal();
+  const tabStrip = $('session-tabs');
+  if (tabStrip) {
+    tabStrip.addEventListener('wheel', (e) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      tabStrip.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }, { passive: false });
+  }
 }
 function isUpgradeTool() { return selectedVal === 'upgrade'; }
 function tileInnerHTML(val) {
@@ -418,6 +912,14 @@ function disallowedAction(r, c) {
   cell.classList.add('flashing');
   setTimeout(() => cell.classList.remove('flashing'), 350);
 }
+function flashPlacedCell(r, c) {
+  const cols = grid[0].length, idx = r * cols + c, cell = $('grid-container').children[idx];
+  if (!cell) return;
+  cell.classList.remove('placed');
+  void cell.offsetWidth;
+  cell.classList.add('placed');
+  setTimeout(() => cell.classList.remove('placed'), 350);
+}
 function villageConflict(r, c) {
   const rows = grid.length, cols = grid[0].length;
   for (let dr = -2; dr <= 2; dr++) {
@@ -455,6 +957,8 @@ function handleCellClick(r, c) {
       if (idx !== -1) { actionOrder.push(idx); claimTiles(idx, r, c, 2); }
     }
     render();
+    persistSessions();
+    flashPlacedCell(r, c);
   } else {
     if (cityTiles.has(grid[r][c])) { disallowedAction(r, c); return; }
     if (selectedVal === 1 && villageConflict(r, c)) { disallowedAction(r, c); return; }
@@ -463,6 +967,8 @@ function handleCellClick(r, c) {
     pushUndoSnapshot();
     grid[r][c] = selectedVal;
     render();
+    persistSessions();
+    flashPlacedCell(r, c);
   }
 }
 function canUpgrade(val) { return upgradeChain[val] !== undefined; }
@@ -653,10 +1159,10 @@ function shiftCityCenters(dr, dc) {
     tilesOwnedByCity[idx] = tilesOwnedByCity[idx].map(t => ({ r: t.r + dr, c: t.c + dc }));
   });
 }
-$('top-plus').onclick  = () => { pushUndoSnapshot(); grid.unshift(newRow(grid[0].length)); shiftCityCenters(1, 0); render(); };
-$('bot-plus').onclick  = () => { pushUndoSnapshot(); grid.push(newRow(grid[0].length)); render(); };
-$('left-plus').onclick = () => { pushUndoSnapshot(); grid.forEach(r => r.unshift(0)); shiftCityCenters(0, 1); render(); };
-$('right-plus').onclick= () => { pushUndoSnapshot(); grid.forEach(r => r.push(0)); render(); };
+$('top-plus').onclick  = () => { pushUndoSnapshot(); grid.unshift(newRow(grid[0].length)); shiftCityCenters(1, 0); render(); persistSessions(); };
+$('bot-plus').onclick  = () => { pushUndoSnapshot(); grid.push(newRow(grid[0].length)); render(); persistSessions(); };
+$('left-plus').onclick = () => { pushUndoSnapshot(); grid.forEach(r => r.unshift(0)); shiftCityCenters(0, 1); render(); persistSessions(); };
+$('right-plus').onclick= () => { pushUndoSnapshot(); grid.forEach(r => r.push(0)); render(); persistSessions(); };
 
 $('calc-btn').onclick = () => {
   if (!isMarketCalculatorReady || !marketCalculator) {
@@ -716,19 +1222,20 @@ $('clear-calc-btn').onclick = () => { cancelCalculation(); resetPreviewState(); 
 
 $('undo-btn').onclick = () => undoOnce();
 $('clear-btn').onclick = () => {
-  if (confirm('Reset to 3x3 grid?')) {
+  if (confirm('Reset to 5x5 grid?')) {
     resetUndoHistory();
-    grid = [newRow(3), newRow(3), newRow(3)];
+    grid = emptyGrid();
     cityCenters = []; actionOrder = []; tilesOwnedByCity = {};
     cancelCalculation();
     resetPreviewState();
     render();
+    persistSessions();
   }
 };
 
 window.addEventListener('resize', render);
 buildSidebar();
-updateUndoButton();
+initSessions();
 render();
 </script>
 </body>

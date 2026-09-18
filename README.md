@@ -81,3 +81,8 @@ recursive backtracking to find the best possible arrangement of stuff
 (best place to place a market in EACH city)
 each recursion depth places the market in 1 city
   then calls recursion depth + 1 and finds the best layout for each 
+
+
+
+
+Create Polytopia Board Notation to formalize map structure and allow for imports
